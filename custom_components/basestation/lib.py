@@ -309,7 +309,7 @@ class BasestationAPI:
                 [command.hex() for command in commands],
             )
             for command in commands:
-                await self._client.write_gatt_char(char, command, response=False)
+                await self._client.write_gatt_char(char, command, response=True)
         finally:
             if disconnect:
                 await self.disconnect()

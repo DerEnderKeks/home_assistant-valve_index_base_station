@@ -39,5 +39,5 @@ class BasestationCoordinator(DataUpdateCoordinator):
         try:
             async with timeout(10):
                 return await self.basestation_ble.update()
-        except BLEAK_EXCEPTIONS as ex:
+        except Exception as ex:
             raise UpdateFailed(str(ex)) from ex
