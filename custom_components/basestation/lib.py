@@ -255,7 +255,7 @@ class BasestationAPI:
     async def identify(self) -> None:
         """Trigger the identify action."""
         _LOGGER.debug("%s (%s): Identifying", self.name, self.address)
-        await self._write_char(CHARACTERISTIC_UUID_IDENTIFY, [0x01], disconnect=True)
+        await self._write_char(CHARACTERISTIC_UUID_IDENTIFY, [0x01.to_bytes()], disconnect=True)
 
         # Identify will turn on the device automatically
         self._state = replace(self._state, power=BasestationStatePower.AWAKE)
