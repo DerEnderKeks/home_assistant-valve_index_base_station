@@ -1,3 +1,5 @@
+"""Base Station base entity."""
+
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -6,13 +8,17 @@ from .coordinator import BasestationCoordinator
 
 
 class BasestationEntity(CoordinatorEntity[BasestationCoordinator]):
+    """Base entity for all Base Station entities."""
+
     _attr_has_entity_name = True
 
     def __init__(self, coordinator: BasestationCoordinator) -> None:
+        """Initialize the entity."""
         super().__init__(coordinator)
 
     @property
     def unique_id(self) -> str:
+        """Return a formatted unique ID."""
         uid = dr.format_mac(self.coordinator.basestation_ble.address)
         if self.entity_description and self.entity_description.key:
             uid += f"_{self.entity_description.key}"
@@ -21,6 +27,7 @@ class BasestationEntity(CoordinatorEntity[BasestationCoordinator]):
 
     @property
     def device_info(self) -> DeviceInfo:
+        """Return device info."""
         return DeviceInfo(
             connections={
                 (
@@ -37,6 +44,7 @@ class BasestationEntity(CoordinatorEntity[BasestationCoordinator]):
         )
 
     async def async_added_to_hass(self) -> None:
+        """When entity is added to hass."""
         self.async_on_remove(
             self.coordinator.basestation_ble.register_callback(
                 lambda _: self._handle_coordinator_update()

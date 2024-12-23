@@ -9,7 +9,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant, callback
 
-from .const import DEVICE_TIMEOUT, DOMAIN
 from .coordinator import BasestationCoordinator
 from .lib import BasestationAPI
 
@@ -19,15 +18,18 @@ type BasestationConfigEntry = ConfigEntry[BasestationCoordinator]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BasestationConfigEntry) -> bool:
+    """Set up config entry."""
     address: str = entry.data[CONF_ADDRESS]
-    ble_device = bluetooth.async_ble_device_from_address(hass, address.upper(), True)
+    ble_device = bluetooth.async_ble_device_from_address(
+        hass, address.upper(), connectable=True
+    )
 
     basestation_ble = BasestationAPI(ble_device)
 
     @callback
     def _async_update_ble(
         service_info: bluetooth.BluetoothServiceInfoBleak,
-        change: BluetoothChange,
+        _: BluetoothChange,
     ) -> None:
         basestation_ble.set_ble_device_and_advertisement_data(
             service_info.device, service_info.advertisement
@@ -55,5 +57,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: BasestationConfigEntry) 
 async def async_unload_entry(
     hass: HomeAssistant, entry: BasestationConfigEntry
 ) -> bool:
+    """Unload callback."""
     await entry.runtime_data.basestation_ble.disconnect()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

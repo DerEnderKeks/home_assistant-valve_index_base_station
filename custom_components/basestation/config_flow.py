@@ -1,4 +1,7 @@
+"""Base Station config flow."""
+
 import logging
+from typing import Any
 
 import voluptuous as vol
 from bleak_retry_connector import BLEAK_EXCEPTIONS
@@ -16,16 +19,20 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class BasestationConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Base Station config flow."""
+
     VERSION = 1
     MINOR_VERSION = 1
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize the config flow."""
         self._discovery_info: BluetoothServiceInfoBleak | None = None
         self._discovered_devices: dict[str, BluetoothServiceInfoBleak] = {}
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
     ) -> ConfigFlowResult:
+        """Bluetooth step."""
         await self.async_set_unique_id(format_mac(discovery_info.address))
         self._abort_if_unique_id_configured()
         self._discovery_info = discovery_info
@@ -36,7 +43,10 @@ class BasestationConfigFlow(ConfigFlow, domain=DOMAIN):
         }
         return await self.async_step_user()
 
-    async def async_step_user(self, user_input=None) -> ConfigFlowResult:
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """User step."""
         error: str | None = None
 
         if user_input is not None:
