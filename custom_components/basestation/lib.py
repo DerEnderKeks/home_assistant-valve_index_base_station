@@ -299,15 +299,15 @@ class BasestationAPI:
         commands: list[bytes],
         disconnect: bool = False,  # noqa: FBT001 FBT002
     ) -> None:
-        _LOGGER.debug(
-            "%s (%s): Writing characteristic %s: %s",
-            self.name,
-            self.address,
-            char,
-            [command.hex() for command in commands],
-        )
         try:
             await self.connect()
+            _LOGGER.debug(
+                "%s (%s): Writing characteristic %s: %s",
+                self.name,
+                self.address,
+                char,
+                [command.hex() for command in commands],
+            )
             for command in commands:
                 await self._client.write_gatt_char(char, command, response=False)
         finally:
@@ -320,14 +320,14 @@ class BasestationAPI:
         char: BleakGATTCharacteristic | int | str | UUID,
         disconnect: bool = False,  # noqa: FBT001 FBT002
     ) -> bytearray:
-        _LOGGER.debug(
-            "%s (%s): Reading characteristic %s",
-            self.name,
-            self.address,
-            char,
-        )
         try:
             await self.connect()
+            _LOGGER.debug(
+                "%s (%s): Reading characteristic %s",
+                self.name,
+                self.address,
+                char,
+            )
             read = await self._client.read_gatt_char(char)
         finally:
             if disconnect:
