@@ -18,4 +18,5 @@ To use this integration you need to have some sort of Bluetooth adapter in your 
 
 ### Installation
 
-<!-- TODO -->
+* Install HACS
+* Manually add this repo
