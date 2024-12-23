@@ -1,0 +1,29 @@
+{
+  "domain": "basestation",
+  "name": "Valve Index Base Station",
+  "version": "0.1.0",
+  "codeowners": [
+    "@DerEnderKeks"
+  ],
+  "documentation": "",
+  "issue_tracker": "",
+  "config_flow": true,
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "dependencies": [
+    "bluetooth_adapters"
+  ],
+  "bluetooth": [
+    {
+      "manufacturer_id": 1373,
+      "local_name": "LHB-*"
+    }
+  ],
+  "requirements": [
+    "voluptuous",
+    "bleak_retry_connector",
+    "bluetooth_data_tools",
+    "habluetooth",
+    "bleak"
+  ]
+}

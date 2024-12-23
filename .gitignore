@@ -1,0 +1,7 @@
+# Home Assistant configuration
+config/*
+!config/configuration.yaml
+
+.coverage
+coverage.xml
+.ruff_cache
