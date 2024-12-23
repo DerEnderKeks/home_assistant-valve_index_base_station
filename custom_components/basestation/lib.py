@@ -1,3 +1,5 @@
+"""Library to interact with Valve Index Base Stations."""
+
 import asyncio
 import logging
 from collections.abc import Callable, Iterable
@@ -33,14 +35,18 @@ CHARACTERISTIC_UUID_POWER = "00001525-1212-efde-1523-785feabcd124"
 CHARACTERISTIC_UUID_IDENTIFY = "00008421-1212-efde-1523-785feabcd124"
 CHARACTERISTIC_UUID_CHANNEL = "00001524-1212-efde-1523-785feabcd124"
 
+CHANNEL_NUM_MIN = 1
+CHANNEL_NUM_MAX = 16
 
-def model_name(id: str) -> str:
+
+def model_name(num: str) -> str:
+    """Convert the model number to a name."""
     models = {
         "1004": "SteamVR Base Station 2.0",
     }
 
-    if id in models:
-        return models[id]
+    if num in models:
+        return models[num]
 
     return "Unknown"
 
@@ -52,18 +58,23 @@ def _is_basestation_device(info: BluetoothServiceInfoBleak) -> bool:
 def filter_discoveries(
     discoveries: Iterable[BluetoothServiceInfoBleak],
 ) -> Iterable[BluetoothServiceInfoBleak]:
+    """Filter for discoveries that are Base Stations."""
     return [i for i in discoveries if _is_basestation_device(i)]
 
 
 def _require_characteristic(
     services: BleakGATTServiceCollection, specifier: int | str | UUID
-):
+) -> BleakGATTCharacteristic:
     char = services.get_characteristic(specifier)
-    assert char
+    if not char:
+        msg = "Characteristic not found"
+        raise ValueError(msg)
     return char
 
 
 class BasestationStatePower(Enum):
+    """Base Station power states."""
+
     SLEEPING = 0x00
     AWAKE = 0x01
     STANDBY = 0x02
@@ -73,15 +84,20 @@ class BasestationStatePower(Enum):
 
 @dataclass(frozen=True)
 class BasestationState:
+    """State of a Base Station."""
+
     power: BasestationStatePower = None
     channel: int = None
     sw_version: str = None
 
 
 class BasestationAPI:
+    """API to talk to a Base Station."""
+
     def __init__(
         self, ble_device: BLEDevice, advertisement_data: AdvertisementData | None = None
     ) -> None:
+        """Initialize the Basestation API."""
         self._ble_device = ble_device
         self._advertisement_data = advertisement_data
 
@@ -96,44 +112,54 @@ class BasestationAPI:
 
     @property
     def address(self) -> str:
+        """Get the BLE MAC address."""
         return self._ble_device.address
 
     @property
     def name(self) -> str:
+        """Get the name."""
         return self._ble_device.name or self._ble_device.address
 
     @property
     def manufacturer(self) -> str:
+        """Get the manufacturer name."""
         return self._manufacturer
 
     @property
     def model(self) -> str:
+        """Get the model name."""
         return model_name(self._model_id)
 
     @property
     def model_id(self) -> str:
+        """Get the model number."""
         return self._model_id
 
     @property
     def serial_number(self) -> str:
+        """Get the serial number."""
         return self._serial_number
 
     @property
     def sw_version(self) -> str:
+        """Get the software version."""
         return self._state.sw_version
 
     @property
     def rssi(self) -> int | None:
+        """Get the RSSI."""
         if self._advertisement_data:
             return self._advertisement_data.rssi
         return None
 
     @property
     def state(self) -> BasestationState:
+        """Get the full state."""
         return self._state
 
     @property
     def is_on(self) -> bool:
+        """Check if on."""
         return self._state.power not in [
             BasestationStatePower.STANDBY,
             BasestationStatePower.SLEEPING,
@@ -141,15 +167,18 @@ class BasestationAPI:
 
     @property
     def channel(self) -> int:
+        """Get the current channel."""
         return self._state.channel
 
     def set_ble_device_and_advertisement_data(
         self, ble_device: BLEDevice, advertisement_data: AdvertisementData
     ) -> None:
+        """Set the BLE device and advertisement data."""
         self._ble_device = ble_device
         self._advertisement_data = advertisement_data
 
     async def update(self) -> BasestationState:
+        """Update the state data."""
         _LOGGER.debug("%s (%s): Updating data", self.name, self.address)
         try:
             if (
@@ -185,29 +214,38 @@ class BasestationAPI:
         return self.state
 
     async def set_power_state(self, power: BasestationStatePower) -> None:
+        """Set the power state."""
         _LOGGER.debug(
             "%s (%s): Setting power state to %s", self.name, self.address, power
         )
         await self._write_char(
-            CHARACTERISTIC_UUID_POWER, [power.value.to_bytes()], True
+            CHARACTERISTIC_UUID_POWER,
+            [power.value.to_bytes()],
+            disconnect=True,
         )
         self._state = replace(self._state, power=power)
         self._fire_callbacks()
 
     async def set_power_on(self) -> None:
+        """Turn on."""
         await self.set_power_state(power=BasestationStatePower.AWAKE)
 
     async def set_power_off(self) -> None:
+        """Turn off (sleep)."""
         await self.set_power_state(power=BasestationStatePower.SLEEPING)
 
     async def set_channel(self, channel: int) -> None:
-        if channel < 1 or channel > 16:
-            raise ValueError("Invalid channel number")
+        """Set the channel."""
+        if channel < CHANNEL_NUM_MIN or channel > CHANNEL_NUM_MAX:
+            msg = "Invalid channel number"
+            raise ValueError(msg)
 
         _LOGGER.debug(
             "%s (%s): Setting channel to %s", self.name, self.address, channel
         )
-        await self._write_char(CHARACTERISTIC_UUID_CHANNEL, [channel.to_bytes()], True)
+        await self._write_char(
+            CHARACTERISTIC_UUID_CHANNEL, [channel.to_bytes()], disconnect=True
+        )
         # Channel change will turn on the device automatically
         self._state = replace(
             self._state, channel=channel, power=BasestationStatePower.AWAKE
@@ -215,14 +253,16 @@ class BasestationAPI:
         self._fire_callbacks()
 
     async def identify(self) -> None:
+        """Trigger the identify action."""
         _LOGGER.debug("%s (%s): Identifying", self.name, self.address)
-        await self._write_char(CHARACTERISTIC_UUID_IDENTIFY, [0x01], True)
+        await self._write_char(CHARACTERISTIC_UUID_IDENTIFY, [0x01], disconnect=True)
 
         # Identify will turn on the device automatically
         self._state = replace(self._state, power=BasestationStatePower.AWAKE)
         self._fire_callbacks()
 
     async def connect(self) -> None:
+        """Connect."""
         if self._client and self._client.is_connected:
             return
 
@@ -242,6 +282,7 @@ class BasestationAPI:
             self._client = client
 
     async def disconnect(self) -> None:
+        """Disconnect."""
         async with self._connect_lock:
             client = self._client
 
@@ -256,7 +297,7 @@ class BasestationAPI:
         self,
         char: BleakGATTCharacteristic | int | str | UUID,
         commands: list[bytes],
-        disconnect: bool = False,
+        disconnect: bool = False,  # noqa: FBT001 FBT002
     ) -> None:
         _LOGGER.debug(
             "%s (%s): Writing characteristic %s: %s",
@@ -268,7 +309,7 @@ class BasestationAPI:
         try:
             await self.connect()
             for command in commands:
-                await self._client.write_gatt_char(char, command, False)
+                await self._client.write_gatt_char(char, command, response=False)
         finally:
             if disconnect:
                 await self.disconnect()
@@ -277,7 +318,7 @@ class BasestationAPI:
     async def _read_char(
         self,
         char: BleakGATTCharacteristic | int | str | UUID,
-        disconnect: bool = False,
+        disconnect: bool = False,  # noqa: FBT001 FBT002
     ) -> bytearray:
         _LOGGER.debug(
             "%s (%s): Reading characteristic %s",
@@ -308,6 +349,8 @@ class BasestationAPI:
     def register_callback(
         self, callback: Callable[[BasestationState], None]
     ) -> Callable[[], None]:
+        """Register callbacks to call when the state changes."""
+
         def unregister_callback() -> None:
             self._callbacks.remove(callback)
 
